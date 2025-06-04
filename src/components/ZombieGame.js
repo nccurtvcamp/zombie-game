@@ -6,19 +6,94 @@ import BackgroundImg from "@/photo/background.png";
 import BackpackImg from "@/photo/backpack.svg";
 import CalculatorImg from "@/photo/calculator.svg";
 import BookImg from "@/photo/book.svg";
-
-
+import TimeImg from "@/photo/time.svg";
 
 const ZOMBIE_SPEED = 4;
 const SPAWN_INTERVAL = 1000;
-const BUTTON_WIDTH = 160; // 从96px增加到160px
-const BUTTON_GAP = 8; // gap-2 = 8px
+const BUTTON_WIDTH = 160;
+const BUTTON_GAP = 8;
+
+// 粒子效果组件
+const ParticleEffect = ({ x, y, onComplete }) => {
+  const [particles, setParticles] = useState([]);
+
+  useEffect(() => {
+    // 创建不同类型的粒子
+    const newParticles = [];
+    for (let i = 0; i < 15; i++) { // 减少粒子数量
+      const angle = (Math.random() * Math.PI * 2);
+      const speed = 2 + Math.random() * 3;
+      const size = 6 + Math.random() * 8;
+      const type = Math.random() < 0.3 ? 'spark' : Math.random() < 0.6 ? 'smoke' : 'flesh';
+      
+      newParticles.push({
+        id: i,
+        x: 0,
+        y: 0,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size,
+        type,
+        life: 1,
+      });
+    }
+    setParticles(newParticles);
+
+    let animationFrame;
+    const animate = () => {
+      setParticles(prev => {
+        const updated = prev.map(p => ({
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          vy: p.vy + 0.05,
+          life: p.life - 0.1,
+        })).filter(p => p.life > 0);
+
+        if (updated.length === 0) {
+          onComplete();
+          return [];
+        }
+        return updated;
+      });
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [onComplete]);
+
+  return (
+    <div className="absolute" style={{ left: x, top: y }}>
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className={`absolute rounded-full ${
+            p.type === 'spark' ? 'bg-yellow-400' :
+            p.type === 'smoke' ? 'bg-gray-400' :
+            'bg-red-500'
+          }`}
+          style={{
+            width: p.size,
+            height: p.size,
+            left: p.x,
+            top: p.y,
+            opacity: p.life,
+            transform: `scale(${p.life})`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 export default function ZombieGame({ onScoreChange, onGameOver }) {
   const [zombies, setZombies] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(20);
   const [activeLane, setActiveLane] = useState(null);
   const [gameWidth, setGameWidth] = useState(0);
+  const [particleEffects, setParticleEffects] = useState([]);
 
   // 计算游戏区域宽度
   useEffect(() => {
@@ -74,11 +149,19 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
     setZombies(prev => {
       const hitZombie = prev.find(zombie => 
         zombie.lane === lane && 
-        zombie.position > 400 && 
-        zombie.position < 500
+        zombie.position > 300 && 
+        zombie.position < 600
       );
 
       if (hitZombie) {
+        // 添加粒子效果
+        const effectId = Date.now();
+        setParticleEffects(prev => [...prev, {
+          id: effectId,
+          x: getLanePosition(hitZombie.lane),
+          y: hitZombie.position,
+        }]);
+        
         onScoreChange(prev => prev + 1);
         return prev.filter(z => z.id !== hitZombie.id);
       }
@@ -119,36 +202,79 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
     return () => clearInterval(timer);
   }, [timeLeft, onGameOver]);
 
+  // 更新僵尸位置
+  useEffect(() => {
+    let lastTime = performance.now();
+    const moveZombies = () => {
+      const currentTime = performance.now();
+      const deltaTime = (currentTime - lastTime) / 16; // 标准化到16ms
+      lastTime = currentTime;
+
+      setZombies(prev => 
+        prev.map(zombie => ({
+          ...zombie,
+          position: zombie.position + ZOMBIE_SPEED * deltaTime
+        })).filter(zombie => zombie.position < 600)
+      );
+
+      requestAnimationFrame(moveZombies);
+    };
+
+    const animationFrame = requestAnimationFrame(moveZombies);
+    return () => cancelAnimationFrame(animationFrame);
+  }, []);
+
   // 生成僵尸的定时器
   useEffect(() => {
     const spawnTimer = setInterval(spawnZombie, SPAWN_INTERVAL);
     return () => clearInterval(spawnTimer);
   }, [spawnZombie]);
 
-  // 更新僵尸位置
+  // 清理僵尸
   useEffect(() => {
-    const moveZombies = setInterval(() => {
-      setZombies(prev => 
-        prev.map(zombie => ({
-          ...zombie,
-          position: zombie.position + ZOMBIE_SPEED
-        })).filter(zombie => zombie.position < 600)
-      );
-    }, 16);
+    const cleanupTimer = setInterval(() => {
+      setZombies(prev => prev.filter(zombie => zombie.position < 600));
+    }, 1000);
 
-    return () => clearInterval(moveZombies);
+    return () => clearInterval(cleanupTimer);
   }, []);
 
   return (
     <div className="relative h-[600px] bg-gray-800 rounded-lg overflow-hidden game-container">
       {/* 背景图片 */}
-      <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+      <div className="absolute inset-0 w-full h-full">
         <img
           src={BackgroundImg.src}
           alt="background"
-          className="w-[90%] h-[90%] object-contain blur-sm"
+          className="w-full h-full object-cover blur-xs"
         />
       </div>
+
+      {/* 时间显示 */}
+      <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-2 rounded-lg">
+        <div className="relative w-36 h-36 -translate-y-2">
+          <img
+            src={TimeImg.src}
+            alt="time"
+            className="w-full h-full object-contain"
+          />
+          <span className="absolute top-1/2 left-1/2 transform -translate-x-4 -translate-y-2.5 text-white text-3xl font-bold">
+            {timeLeft}
+          </span>
+        </div>
+      </div>
+
+      {/* 粒子效果 */}
+      {particleEffects.map(effect => (
+        <ParticleEffect
+          key={effect.id}
+          x={effect.x}
+          y={effect.y}
+          onComplete={() => {
+            setParticleEffects(prev => prev.filter(p => p.id !== effect.id));
+          }}
+        />
+      ))}
 
       {/* 僵尸 */}
       {zombies.map(zombie => (
@@ -174,7 +300,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
         <button
           onClick={() => handleShoot('left')}
           className={`w-40 h-40 rounded-lg transition-all hover:scale-110 ${
-            activeLane === 'left' ? 'ring-4 ring-blue-500' : ''
+            activeLane === 'left' ? 'ring-4 ring-red-500' : ''
           }`}
         >
           <img
@@ -186,7 +312,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
         <button
           onClick={() => handleShoot('middle')}
           className={`w-40 h-40 rounded-lg transition-all hover:scale-110 ${
-            activeLane === 'middle' ? 'ring-4 ring-blue-500' : ''
+            activeLane === 'middle' ? 'ring-4 ring-red-500' : ''
           }`}
         >
           <img
@@ -198,7 +324,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
         <button
           onClick={() => handleShoot('right')}
           className={`w-40 h-40 rounded-lg transition-all hover:scale-110 ${
-            activeLane === 'right' ? 'ring-4 black-500' : ''
+            activeLane === 'right' ? 'ring-4 ring-red-500' : ''
           }`}
         >
           <img
