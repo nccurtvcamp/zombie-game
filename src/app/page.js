@@ -26,10 +26,10 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-8">
       <h1 className="text-4xl font-bold mb-8 relative">
-        <span className="relative z-10">殭屍別吵我睡覺</span>
-        <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-yellow-500/20 blur-sm"></div>
-        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-30 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
+        <span className="relative z-10 block translate-y-10">殭屍別吵我睡覺</span>
+        <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-yellow-500/20 blur-sm translate-y-10"></div>
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-30 mix-blend-overlay translate-y-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20 translate-y-10"></div>
       </h1>
       
       {!gameStarted ? (

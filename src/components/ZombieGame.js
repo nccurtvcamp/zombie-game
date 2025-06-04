@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import zombieImg from "@/photo/zombie.svg";
 import BackgroundImg from "@/photo/background.png";
 import BackpackImg from "@/photo/backpack.svg";
@@ -16,11 +16,12 @@ const BUTTON_GAP = 8;
 // 粒子效果组件
 const ParticleEffect = ({ x, y, onComplete }) => {
   const [particles, setParticles] = useState([]);
+  const animationFrameRef = useRef();
 
   useEffect(() => {
     // 创建不同类型的粒子
     const newParticles = [];
-    for (let i = 0; i < 15; i++) { // 减少粒子数量
+    for (let i = 0; i < 10; i++) { // 减少粒子数量
       const angle = (Math.random() * Math.PI * 2);
       const speed = 2 + Math.random() * 3;
       const size = 6 + Math.random() * 8;
@@ -39,7 +40,6 @@ const ParticleEffect = ({ x, y, onComplete }) => {
     }
     setParticles(newParticles);
 
-    let animationFrame;
     const animate = () => {
       setParticles(prev => {
         const updated = prev.map(p => ({
@@ -57,11 +57,15 @@ const ParticleEffect = ({ x, y, onComplete }) => {
         return updated;
       });
 
-      animationFrame = requestAnimationFrame(animate);
+      animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
+    animationFrameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
   }, [onComplete]);
 
   return (
@@ -94,13 +98,15 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
   const [activeLane, setActiveLane] = useState(null);
   const [gameWidth, setGameWidth] = useState(0);
   const [particleEffects, setParticleEffects] = useState([]);
+  const gameContainerRef = useRef(null);
+  const lastTimeRef = useRef(performance.now());
+  const animationFrameRef = useRef();
 
   // 计算游戏区域宽度
   useEffect(() => {
     const updateWidth = () => {
-      const gameElement = document.querySelector('.game-container');
-      if (gameElement) {
-        setGameWidth(gameElement.offsetWidth);
+      if (gameContainerRef.current) {
+        setGameWidth(gameContainerRef.current.offsetWidth);
       }
     };
 
@@ -110,7 +116,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
   }, []);
 
   // 计算每个车道的中心位置
-  const getLanePosition = (lane) => {
+  const getLanePosition = useCallback((lane) => {
     const totalWidth = gameWidth;
     const totalButtonsWidth = BUTTON_WIDTH * 3 + BUTTON_GAP * 2;
     const startX = (totalWidth - totalButtonsWidth) / 2;
@@ -125,24 +131,22 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
       default:
         return 0;
     }
-  };
+  }, [gameWidth]);
 
   // 生成僵尸
   const spawnZombie = useCallback(() => {
     const lanes = ['left', 'middle', 'right'];
     const randomLane = lanes[Math.floor(Math.random() * lanes.length)];
     
-    const newZombie = {
+    setZombies(prev => [...prev, {
       id: Date.now(),
       lane: randomLane,
       position: 0,
-    };
-    
-    setZombies(prev => [...prev, newZombie]);
+    }]);
   }, []);
 
   // 处理射击
-  const handleShoot = (lane) => {
+  const handleShoot = useCallback((lane) => {
     setActiveLane(lane);
     setTimeout(() => setActiveLane(null), 100);
 
@@ -154,7 +158,6 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
       );
 
       if (hitZombie) {
-        // 添加粒子效果
         const effectId = Date.now();
         setParticleEffects(prev => [...prev, {
           id: effectId,
@@ -167,7 +170,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
       }
       return prev;
     });
-  };
+  }, [getLanePosition, onScoreChange]);
 
   // 处理键盘输入
   useEffect(() => {
@@ -186,7 +189,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  }, [handleShoot]);
 
   // 游戏计时器
   useEffect(() => {
@@ -202,13 +205,18 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
     return () => clearInterval(timer);
   }, [timeLeft, onGameOver]);
 
+  // 生成僵尸的定时器
+  useEffect(() => {
+    const spawnTimer = setInterval(spawnZombie, SPAWN_INTERVAL);
+    return () => clearInterval(spawnTimer);
+  }, [spawnZombie]);
+
   // 更新僵尸位置
   useEffect(() => {
-    let lastTime = performance.now();
-    const moveZombies = () => {
+    const animate = () => {
       const currentTime = performance.now();
-      const deltaTime = (currentTime - lastTime) / 16; // 标准化到16ms
-      lastTime = currentTime;
+      const deltaTime = (currentTime - lastTimeRef.current) / 16;
+      lastTimeRef.current = currentTime;
 
       setZombies(prev => 
         prev.map(zombie => ({
@@ -217,30 +225,19 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
         })).filter(zombie => zombie.position < 600)
       );
 
-      requestAnimationFrame(moveZombies);
+      animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    const animationFrame = requestAnimationFrame(moveZombies);
-    return () => cancelAnimationFrame(animationFrame);
-  }, []);
-
-  // 生成僵尸的定时器
-  useEffect(() => {
-    const spawnTimer = setInterval(spawnZombie, SPAWN_INTERVAL);
-    return () => clearInterval(spawnTimer);
-  }, [spawnZombie]);
-
-  // 清理僵尸
-  useEffect(() => {
-    const cleanupTimer = setInterval(() => {
-      setZombies(prev => prev.filter(zombie => zombie.position < 600));
-    }, 1000);
-
-    return () => clearInterval(cleanupTimer);
+    animationFrameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
   }, []);
 
   return (
-    <div className="relative h-[600px] bg-gray-800 rounded-lg overflow-hidden game-container">
+    <div ref={gameContainerRef} className="relative h-[600px] bg-gray-800 rounded-lg overflow-hidden game-container">
       {/* 背景图片 */}
       <div className="absolute inset-0 w-full h-full">
         <img
