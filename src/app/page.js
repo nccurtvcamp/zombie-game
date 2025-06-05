@@ -4,8 +4,11 @@ import { useState } from "react";
 import ZombieGame from "../components/ZombieGame";
 import StartImg from "@/photo/start.svg";
 import zombieImg from "@/photo/zombie.svg";
-import BackgroundImg from "@/photo/background.png";
+import BackgroundImg from "@/photo/background3.png";
 import ResultImg from "@/photo/result.svg";
+import TitleImg from "@/photo/title.svg";
+import ReplayImg from "@/photo/replay.svg";
+import BackImg from "@/photo/back.svg";
 
 export default function Home() {
   const [gameStarted, setGameStarted] = useState(false);
@@ -24,65 +27,94 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-8">
-      <h1 className="text-4xl font-bold mb-8 relative">
-        <span className="relative z-10 block translate-y-10">殭屍別吵我睡覺</span>
-        <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-yellow-500/20 blur-sm translate-y-10"></div>
-        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-30 mix-blend-overlay translate-y-10"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20 translate-y-10"></div>
-      </h1>
-      
-      {!gameStarted ? (
-        <div className="text-center">
-          {gameOver ? (
-            <div className="flex flex-col items-center">
-              <div className="relative w-[400px] h-[400px]">
-                <img
-                  src={ResultImg.src}
-                  alt="遊戲結束"
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <h2 className="text-3xl font-bold mb-4">遊戲結束！</h2>
-                  <p className="text-2xl mb-6">最終得分： {score}</p>
+    <div className="relative min-h-screen bg-gray-900 text-white p-8">
+      {/* 背景图片 */}
+      <div className="fixed inset-0 w-full h-full">
+        <img
+          src={BackgroundImg.src}
+          alt="background"
+          className="w-full h-full object-cover blur-md"
+        />
+      </div>
+
+      <div className="relative flex flex-col items-center justify-center min-h-screen">
+        {!gameStarted && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[600px] h-[400px] z-50">
+            <img
+              src={TitleImg.src}
+              alt="殭屍別吵我睡覺"
+              className="w-full h-full"
+            />
+          </div>
+        )}
+        
+        {!gameStarted ? (
+          <div className="text-center mt-[200px]">
+            {gameOver ? (
+              <div className="flex flex-col items-center">
+                <div className="relative w-[300px] h-[300px] z-10">
+                  <img
+                    src={ResultImg.src}
+                    alt="遊戲結束"
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <h2 className="text-3xl font-bold mb-4">遊戲結束！</h2>
+                    <p className="text-2xl mb-6">最終得分： {score}</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <button
+                    onClick={startGame}
+                    className="relative w-20 h-20 transition-transform hover:scale-105"
+                  >
+                    <img
+                      src={ReplayImg.src}
+                      alt="再玩一次"
+                      className="w-full h-full object-contain"
+                    />
+                  </button>
+                  <button
+                    className="relative w-20 h-20 transition-transform hover:scale-105"
+                  >
+                    <img
+                      src={BackImg.src}
+                      alt="返回"
+                      className="w-full h-full object-contain"
+                    />
+                  </button>
                 </div>
               </div>
+            ) : (
               <button
                 onClick={startGame}
-                className="mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg text-xl transition-colors"
+                className="relative w-48 h-48 transition-transform hover:scale-105 -mt-[200px]"
               >
-                再玩一次
+                <img
+                  src={StartImg.src}
+                  alt="開始遊戲"
+                  className="w-full h-full object-contain"
+                />
               </button>
+            )}
+          </div>
+        ) : (
+          <div className="w-full max-w-4xl">
+            <div className="flex justify-between mb-4">
+              <div className="text-2xl">分數: {score}</div>
             </div>
-          ) : (
-            <button
-              onClick={startGame}
-              className="relative w-48 h-48 transition-transform hover:scale-105"
-            >
-              <img
-                src={StartImg.src}
-                alt="開始遊戲"
-                className="w-full h-full object-contain"
-              />
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="w-full max-w-4xl">
-          <div className="flex justify-between mb-4">
-            <div className="text-2xl">分數: {score}</div>
+            
+            <ZombieGame 
+              onScoreChange={setScore}
+              onGameOver={handleGameOver}
+            />
+            
+            <div className="mt-4 text-center">
+              <p className="text-lg">點擊工具打擊殭屍！！</p>
+            </div>
           </div>
-          
-          <ZombieGame 
-            onScoreChange={setScore}
-            onGameOver={handleGameOver}
-          />
-          
-          <div className="mt-4 text-center">
-            <p className="text-lg">點擊工具打擊殭屍！！</p>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

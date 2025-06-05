@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import zombieImg from "@/photo/zombie.svg";
-import BackgroundImg from "@/photo/background.png";
+import zombie2Img from "@/photo/zombie2.svg";
+import BackgroundImg from "@/photo/background2.png";
 import BackpackImg from "@/photo/backpack.svg";
 import CalculatorImg from "@/photo/calculator.svg";
 import BookImg from "@/photo/book.svg";
@@ -13,91 +14,13 @@ const SPAWN_INTERVAL = 1000;
 const BUTTON_WIDTH = 160;
 const BUTTON_GAP = 8;
 
-// 粒子效果组件
-const ParticleEffect = ({ x, y, onComplete }) => {
-  const [particles, setParticles] = useState([]);
-  const animationFrameRef = useRef();
-
-  useEffect(() => {
-    // 创建不同类型的粒子
-    const newParticles = [];
-    for (let i = 0; i < 10; i++) { // 减少粒子数量
-      const angle = (Math.random() * Math.PI * 2);
-      const speed = 2 + Math.random() * 3;
-      const size = 6 + Math.random() * 8;
-      const type = Math.random() < 0.3 ? 'spark' : Math.random() < 0.6 ? 'smoke' : 'flesh';
-      
-      newParticles.push({
-        id: i,
-        x: 0,
-        y: 0,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        size,
-        type,
-        life: 1,
-      });
-    }
-    setParticles(newParticles);
-
-    const animate = () => {
-      setParticles(prev => {
-        const updated = prev.map(p => ({
-          ...p,
-          x: p.x + p.vx,
-          y: p.y + p.vy,
-          vy: p.vy + 0.05,
-          life: p.life - 0.1,
-        })).filter(p => p.life > 0);
-
-        if (updated.length === 0) {
-          onComplete();
-          return [];
-        }
-        return updated;
-      });
-
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [onComplete]);
-
-  return (
-    <div className="absolute" style={{ left: x, top: y }}>
-      {particles.map(p => (
-        <div
-          key={p.id}
-          className={`absolute rounded-full ${
-            p.type === 'spark' ? 'bg-yellow-400' :
-            p.type === 'smoke' ? 'bg-gray-400' :
-            'bg-red-500'
-          }`}
-          style={{
-            width: p.size,
-            height: p.size,
-            left: p.x,
-            top: p.y,
-            opacity: p.life,
-            transform: `scale(${p.life})`,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
 export default function ZombieGame({ onScoreChange, onGameOver }) {
   const [zombies, setZombies] = useState([]);
   const [timeLeft, setTimeLeft] = useState(20);
   const [activeLane, setActiveLane] = useState(null);
   const [gameWidth, setGameWidth] = useState(0);
-  const [particleEffects, setParticleEffects] = useState([]);
+  const [isSpeedUp, setIsSpeedUp] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
   const gameContainerRef = useRef(null);
   const lastTimeRef = useRef(performance.now());
   const animationFrameRef = useRef();
@@ -142,8 +65,9 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
       id: Date.now(),
       lane: randomLane,
       position: 0,
+      isSpeedUp: isSpeedUp
     }]);
-  }, []);
+  }, [isSpeedUp]);
 
   // 处理射击
   const handleShoot = useCallback((lane) => {
@@ -158,13 +82,6 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
       );
 
       if (hitZombie) {
-        const effectId = Date.now();
-        setParticleEffects(prev => [...prev, {
-          id: effectId,
-          x: getLanePosition(hitZombie.lane),
-          y: hitZombie.position,
-        }]);
-        
         onScoreChange(prev => prev + 1);
         return prev.filter(z => z.id !== hitZombie.id);
       }
@@ -172,30 +89,19 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
     });
   }, [getLanePosition, onScoreChange]);
 
-  // 处理键盘输入
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      const key = e.key.toLowerCase();
-      const laneMap = {
-        'a': 'left',
-        's': 'middle',
-        'd': 'right'
-      };
-
-      if (laneMap[key]) {
-        handleShoot(laneMap[key]);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [handleShoot]);
-
   // 游戏计时器
   useEffect(() => {
     if (timeLeft <= 0) {
       onGameOver();
       return;
+    }
+
+    if (timeLeft === 10) {
+      setShowWarning(true);
+      setTimeout(() => {
+        setShowWarning(false);
+        setIsSpeedUp(true);
+      }, 2000);
     }
 
     const timer = setInterval(() => {
@@ -221,7 +127,8 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
       setZombies(prev => 
         prev.map(zombie => ({
           ...zombie,
-          position: zombie.position + ZOMBIE_SPEED * deltaTime
+          isSpeedUp: isSpeedUp,
+          position: zombie.position + (isSpeedUp ? ZOMBIE_SPEED * 2 : ZOMBIE_SPEED) * deltaTime
         })).filter(zombie => zombie.position < 600)
       );
 
@@ -234,7 +141,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [isSpeedUp]);
 
   return (
     <div ref={gameContainerRef} className="relative h-[600px] bg-gray-800 rounded-lg overflow-hidden game-container">
@@ -247,6 +154,11 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
         />
       </div>
 
+      {/* 警告效果 */}
+      {showWarning && (
+        <div className="absolute inset-0 bg-red-500/30 animate-pulse z-40" />
+      )}
+
       {/* 时间显示 */}
       <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-2 rounded-lg">
         <div className="relative w-36 h-36 -translate-y-2">
@@ -255,23 +167,11 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
             alt="time"
             className="w-full h-full object-contain"
           />
-          <span className="absolute top-1/2 left-1/2 transform -translate-x-4 -translate-y-2.5 text-white text-3xl font-bold">
+          <span className={`absolute top-1/2 left-1/2 transform -translate-x-4 -translate-y-2.5 text-white text-3xl font-bold ${showWarning ? 'animate-bounce text-red-500' : ''}`}>
             {timeLeft}
           </span>
         </div>
       </div>
-
-      {/* 粒子效果 */}
-      {particleEffects.map(effect => (
-        <ParticleEffect
-          key={effect.id}
-          x={effect.x}
-          y={effect.y}
-          onComplete={() => {
-            setParticleEffects(prev => prev.filter(p => p.id !== effect.id));
-          }}
-        />
-      ))}
 
       {/* 僵尸 */}
       {zombies.map(zombie => (
@@ -285,7 +185,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
           }}
         >
           <img
-            src={zombieImg.src}
+            src={zombie.isSpeedUp ? zombie2Img.src : zombieImg.src}
             alt="zombie"
             className="w-full h-full object-contain"
           />
