@@ -74,15 +74,17 @@ export default function Home() {
                       className="w-full h-full object-contain"
                     />
                   </button>
-                  <button
-                    className="relative w-20 h-20 transition-transform hover:scale-105"
-                  >
-                    <img
-                      src={BackImg.src}
-                      alt="返回"
-                      className="w-full h-full object-contain"
-                    />
-                  </button>
+                  <a href="https://classroomdaydream.vercel.app">
+                    <button
+                      className="relative w-20 h-20 transition-transform hover:scale-105"
+                    >
+                      <img
+                        src={BackImg.src}
+                        alt="返回"
+                        className="w-full h-full object-contain"
+                      />
+                    </button>
+                  </a>
                 </div>
               </div>
             ) : (

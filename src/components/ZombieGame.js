@@ -82,7 +82,7 @@ export default function ZombieGame({ onScoreChange, onGameOver }) {
       );
 
       if (hitZombie) {
-        onScoreChange(prev => prev + 1);
+        onScoreChange(prevScore => prevScore + 1);
         return prev.filter(z => z.id !== hitZombie.id);
       }
       return prev;
